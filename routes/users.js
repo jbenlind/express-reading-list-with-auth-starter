@@ -1,5 +1,6 @@
 const express = require('express');
 const { check, validationResult } = require('express-validator');
+const bcrypt = require('bcryptjs');
 
 const db = require('../db/models');
 const { csrfProtection, asyncHandler } = require('./utils');
@@ -16,7 +17,7 @@ router.get('/user/register', csrfProtection, (req, res) => {
 });
 
 const userValidators = [
-    check('firstName')
+  check('firstName')
     .exists({ checkFalsy: true })
     .withMessage('Please provide a value for First Name')
     .isLength({ max: 50 })
@@ -34,13 +35,13 @@ const userValidators = [
     .isEmail()
     .withMessage('Email Address is not a valid email')
     .custom((value) => {
-        return db.User.findOne({ where: { emailAddress: value } })
-          .then((user) => {
-            if (user) {
-              return Promise.reject('The provided Email Address is already in use by another account');
-            }
-          });
-      }),
+      return db.User.findOne({ where: { emailAddress: value } })
+        .then((user) => {
+          if (user) {
+            return Promise.reject('The provided Email Address is already in use by another account');
+          }
+        });
+    }),
   check('password')
     .exists({ checkFalsy: true })
     .withMessage('Please provide a value for Password')
@@ -54,10 +55,10 @@ const userValidators = [
     .isLength({ max: 50 })
     .withMessage('Confirm Password must not be more than 50 characters long')
     .custom((value, { req }) => {
-        if (value !== req.body.password) {
-          throw new Error('Confirm Password does not match Password');
-        }
-        return true;
+      if (value !== req.body.password) {
+        throw new Error('Confirm Password does not match Password');
+      }
+      return true;
     }),
 ];
 
@@ -79,6 +80,8 @@ router.post('/user/register', csrfProtection, userValidators,
     const validatorErrors = validationResult(req);
 
     if (validatorErrors.isEmpty()) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      user.hashedPassword = hashedPassword;
       await user.save();
       res.redirect('/');
     } else {
